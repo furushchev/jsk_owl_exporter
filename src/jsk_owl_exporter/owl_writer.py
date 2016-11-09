@@ -35,8 +35,6 @@ class OWLWriter(OWLWriterMeta):
         elem.attrib["{%s}%s" % (self.nsmap[ns], name)] = val
         return elem
 
-    def add_
-
     def gen_owl_import(self, uris):
         o = self.owl.Ontology()
         self.add_attrib(o, "rdf", "about", None, self.nsmap[None])
@@ -63,9 +61,12 @@ class OWLWriter(OWLWriterMeta):
         self.doc.append(cls)
 
     def gen_event_individuals(self):
-        pass
+        self.doc.append(lxml.etree.Comment("Event Individuals"))
 
     def gen_object_individuals(self):
+        pass
+
+    def gen_human_individuals(self):
         pass
 
     def gen_image_individuals(self):
@@ -83,6 +84,9 @@ class OWLWriter(OWLWriterMeta):
     def gen_metadata_individual(self, creator, description, experiment, experimentName, robot, start_time, end_time):
         pass
 
+    def gen_parameter_annotation_information(self):
+        pass
+
     def to_string(self, pretty_print=True, doctype=None):
         if doctype is None:
             doctype = """<!DOCTYPE rdf:RDF [
@@ -98,7 +102,18 @@ class OWLWriter(OWLWriterMeta):
             "package://knowrob_common/owl/knowrob.owl"
         ])
 
-        # TODO: generate other elements
+        self.gen_event_individuals()
+        self.gen_object_individuals()
+        self.gen_human_individuals()
+        self.gen_image_individuals()
+        self.gen_designator_individuals()
+        self.gen_failure_individuals()
+        self.gen_timepoint_individuals()
+        self.gen_metadata_individual()
+        self.gen_parameter_annotation_information()
+
+        self.gen_property_definitions()
+        self.gen_class_definitions()
 
         return lxml.etree.tostring(self.doc,
                                    encoding="utf-8",
