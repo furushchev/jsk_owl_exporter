@@ -11,10 +11,12 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>rospy</build_depend>
+  <build_depend>message_generation</build_depend>
 
   <run_depend>python-lxml</run_depend>
   <run_depend>python-mongo</run_depend>
   <run_depend>rospy</run_depend>
+  <run_depend>message_runtime</run_depend>
 
   <export>
   </export>

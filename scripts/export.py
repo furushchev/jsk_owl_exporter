@@ -8,10 +8,8 @@ import os
 import pymongo
 from bson.son import SON
 import sys
+from jsk_owl_exporter import *
 
-def get_mongo_client(host, port, db, col):
-    c = pymongo.MongoClient(host, port)
-    return c[db][col]
 
 def list_tasks(host, port, db, col):
     client = get_mongo_client(host, port, db, col)
@@ -78,13 +76,19 @@ def info_task(host, port, db, col, task_id):
         print statfmt.format(t, s)
     return True
 
+def export_task(host, port, db, col, task_id, output_dir):
+    client = get_mongo_client(host, port, db, col)
+    agg = MongoAggregator(client, task_id)
+    agg.aggregate()
+    return True
+
 def exec_command(args):
     if args.command == "list":
         return list_tasks(args.host, args.port, args.db, args.col)
     elif args.command == "info":
         return info_task(args.host, args.port, args.db, args.col, args.task)
     elif args.command == "export":
-        pass
+        return export_task(args.host, args.port, args.db, args.col, args.task, args.output)
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description="OWL Exporter from mongo database")
