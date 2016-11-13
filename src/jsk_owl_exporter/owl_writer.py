@@ -2,15 +2,19 @@
 # -*- coding: utf-8 -*-
 # Author: Yuki Furuta <furushchev@jsk.imi.i.u-tokyo.ac.jp>
 
+import datetime
 import lxml.etree
 import lxml.builder
 import sys
+from utils import UniqueStringGenerator
 
 class OWLWriterMeta(object):
     VERSION = 0.93
 
 class OWLWriter(OWLWriterMeta):
-    def __init__(self, nsmap=None):
+    def __init__(self, root_node, nsmap=None):
+        self.root = root_node
+        self.strgen = UniqueStringGenerator(8)
         self.nsmap = {
             None: "http://knowrob.org/kb/cram_log.owl#",
             "owl": "http://www.w3.org/2002/07/owl#",
@@ -26,8 +30,12 @@ class OWLWriter(OWLWriterMeta):
                                              nsmap=self.nsmap)
         self.owl = lxml.builder.ElementMaker(namespace=self.nsmap["owl"],
                                              nsmap=self.nsmap)
+        self.knowrob = lxml.builder.ElementMaker(namespace=self.nsmap["knowrob"],
+                                                 nsmap=self.nsmap)
         self.doc = self.rdf.RDF()
         self.doc.base = "http://knowrob.org/kb/cram_log.owl"
+
+        self.timepoints = []
 
     def add_attrib(self, elem, ns, name, val_ns, val):
         if val_ns is not None:
@@ -44,24 +52,52 @@ class OWLWriter(OWLWriterMeta):
             o.append(i)
         self.doc.append(o)
 
-    def gen_property_definitions(self, props):
+    def gen_property_definitions(self):
         self.doc.append(lxml.etree.Comment("Property Definitions"))
 
         op = self.owl.ObjectProperty()
-        for prop in props:
-            self.add_attrib(op, "rdf", "about", prop)
+        for prop in self.root.prop_key_set():
+            self.add_attrib(op, "rdf", "about", "knowrob", prop)
         self.doc.append(op)
 
-    def gen_class_definitions(self, props):
+    def gen_class_definitions(self):
         self.doc.append(lxml.etree.Comment("Class Definitions"))
 
         cls = self.owl.Class()
-        for prop in props:
-            self.add_attrib(cls, "rdf", "about", prop)
+        for prop in self.root.type_set():
+            self.add_attrib(cls, "rdf", "about", "knowrob", prop)
         self.doc.append(cls)
+
+    def gen_event_individual_recursive(self, n):
+        for c in n.children:
+            self.gen_event_individual_recursive(c)
+        elem = self.owl.namedIndividual()
+        self.add_attrib(elem, "rdf", "about", "log", n.name)
+
+        # rdf:type
+        etype = self.rdf.type()
+        self.add_attrib(etype, "rdf", "resource", "knowrob", n.ntype)
+        elem.append(etype)
+
+        # properties
+        for tag, value in n.properties.items():
+            p = self.knowrob(tag)
+            if type(value) is list:
+                self.add_attrib(p, "rdf", "datatype", "xsd", "string")
+                p.text = " ".join(value)
+            elif type(value) is datetime.datetime:
+                n = "timepoint_" + value.strftime("%s")
+                self.timepoints.append(n)
+                self.add_attrib(p, "rdf", "resource", "log", n)
+            else:
+                self.add_attrib(p, "rdf", "resource", "log", value)
+            elem.append(p)
+
+        self.doc.append(elem)
 
     def gen_event_individuals(self):
         self.doc.append(lxml.etree.Comment("Event Individuals"))
+        self.gen_event_individual_recursive(self.root)
 
     def gen_object_individuals(self):
         pass
@@ -79,10 +115,34 @@ class OWLWriter(OWLWriterMeta):
         pass
 
     def gen_timepoint_individuals(self):
-        pass
+        self.doc.append(lxml.etree.Comment("Timepoint Individuals"))
+        for name in self.timepoints:
+            tp = self.owl.NamedIndividual()
+            self.add_attrib(tp, "rdf", "about", "log", name)
+            typ = self.rdf.type()
+            self.add_attrib(typ, "rdf", "resource", "knowrob", "TimePoint")
+            tp.append(typ)
+            self.doc.append(tp)
 
-    def gen_metadata_individual(self, creator, description, experiment, experimentName, robot, start_time, end_time):
-        pass
+    def gen_metadata_individual(self):
+        self.doc.append(lxml.etree.Comment("Meta Data Individual"))
+        meta = self.owl.NamedIndividual()
+        for tag, value in self.root.properties.items():
+            p = self.knowrob(tag)
+            self.add_attrib(p, "rdf", "datatype", "xsd", "string")
+            p.text = value
+            meta.append(p)
+
+        start = self.knowrob.startTime()
+        self.add_attrib(start, "rdf", "resource", "log", self.timepoints[0])
+        meta.append(start)
+
+        end = self.knowrob.endTime()
+        self.add_attrib(end, "rdf", "resource", "log", self.timepoints[-1])
+        meta.append(end)
+
+        self.doc.append(meta)
+
 
     def gen_parameter_annotation_information(self):
         pass

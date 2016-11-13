@@ -79,7 +79,7 @@ def info_task(host, port, db, col, task_id):
 def export_task(host, port, db, col, task_id, output_dir):
     client = get_mongo_client(host, port, db, col)
     agg = MongoAggregator(client, task_id)
-    agg.aggregate()
+    node = agg.aggregate()
     return True
 
 def exec_command(args):
