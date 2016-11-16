@@ -32,7 +32,7 @@ class Node(object):
             s |= c.prop_key_set()
         return s
     def type_set(self):
-        s = set(self.ntype)
+        s = set([self.ntype])
         for c in self.children:
             s |= c.type_set()
         return s
