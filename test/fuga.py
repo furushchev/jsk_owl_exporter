@@ -13,3 +13,4 @@ agg = MongoAggregator(c, task)
 n = agg.aggregate()
 w = OWLWriter(n)
 print w.to_string()
+

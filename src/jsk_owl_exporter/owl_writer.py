@@ -5,8 +5,9 @@
 import datetime
 import lxml.etree
 import lxml.builder
+import os
 import sys
-from utils import UniqueStringGenerator
+from utils import UniqueStringGenerator, get_epoch_time
 
 class OWLWriterMeta(object):
     VERSION = 0.93
@@ -55,18 +56,18 @@ class OWLWriter(OWLWriterMeta):
     def gen_property_definitions(self):
         self.doc.append(lxml.etree.Comment("Property Definitions"))
 
-        op = self.owl.ObjectProperty()
         for prop in self.root.prop_key_set():
+            op = self.owl.ObjectProperty()
             self.add_attrib(op, "rdf", "about", "knowrob", prop)
-        self.doc.append(op)
+            self.doc.append(op)
 
     def gen_class_definitions(self):
         self.doc.append(lxml.etree.Comment("Class Definitions"))
 
-        cls = self.owl.Class()
         for prop in self.root.type_set():
+            cls = self.owl.Class()
             self.add_attrib(cls, "rdf", "about", "knowrob", prop)
-        self.doc.append(cls)
+            self.doc.append(cls)
 
     def gen_event_individual_recursive(self, n):
         for c in n.children:
@@ -86,7 +87,7 @@ class OWLWriter(OWLWriterMeta):
                 self.add_attrib(p, "rdf", "datatype", "xsd", "string")
                 p.text = " ".join(value)
             elif type(value) is datetime.datetime:
-                n = "timepoint_" + value.strftime("%s")
+                n = "timepoint_%d" % get_epoch_time(value)
                 self.timepoints.append(n)
                 self.add_attrib(p, "rdf", "resource", "log", n)
             else:
@@ -143,24 +144,22 @@ class OWLWriter(OWLWriterMeta):
 
         self.doc.append(meta)
 
-
     def gen_parameter_annotation_information(self):
         pass
 
-    def to_string(self, pretty_print=True, doctype=None):
-        if doctype is None:
-            doctype = """<!DOCTYPE rdf:RDF [
-    <!ENTITY owl "http://www.w3.org/2002/07/owl#" >
-    <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#" >
-    <!ENTITY knowrob "http://knowrob.org/kb/knowrob.owl#" >
-    <!ENTITY rdfs "http://www.w3.org/2000/01/rdf-schema#" >
-    <!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#" >
-    <!ENTITY log "http://knowrob.org/kb/cram_log.owl#" >
-]>
-"""
+    def to_string(self, pretty_print=True):
+        # define entity references
+        docstr = ["<!DOCTYPE rdf:RDF ["]
+        docstr += ["<!ENTITY %s \"%s\" >" % (k,v) for k,v in self.nsmap.items() if k is not None]
+        docstr += ["]>"]
+        doctype = os.linesep.join(docstr)
+
         self.gen_owl_import([
             "package://knowrob_common/owl/knowrob.owl"
         ])
+
+        self.gen_property_definitions()
+        self.gen_class_definitions()
 
         self.gen_event_individuals()
         self.gen_object_individuals()
@@ -172,14 +171,18 @@ class OWLWriter(OWLWriterMeta):
         self.gen_metadata_individual()
         self.gen_parameter_annotation_information()
 
-        self.gen_property_definitions()
-        self.gen_class_definitions()
-
-        return lxml.etree.tostring(self.doc,
+        # generate xml string
+        body = lxml.etree.tostring(self.doc,
                                    encoding="utf-8",
                                    xml_declaration=True,
                                    pretty_print=pretty_print,
+                                   with_comments=True,
                                    doctype=doctype)
+
+        # unescape entity references
+        for key in self.nsmap.keys():
+            body = body.replace("&amp;%s;" % key, "&%s;" % key)
+        return body
 
     def to_file(self, dest, pretty_print=True, doctype=None):
         with open(dest, "w") as f:

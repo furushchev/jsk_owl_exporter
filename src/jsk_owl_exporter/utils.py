@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Yuki Furuta <furushchev@jsk.imi.i.u-tokyo.ac.jp>
 
+import datetime
 import pymongo
 import random
 import string
@@ -22,3 +23,6 @@ def get_mongo_client(host, port, db, col):
     c = pymongo.MongoClient(host, port)
     return c[db][col]
 
+
+def get_epoch_time(dt):
+    return int((dt - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000.0)
