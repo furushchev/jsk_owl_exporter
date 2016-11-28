@@ -82,10 +82,10 @@ class OWLWriter(OWLWriterMeta):
         # properties
         for tag, value in n.properties.items():
             p = self.knowrob(tag)
-            if type(value) is list:
+            if isinstance(value, list):
                 self.add_attrib(p, "rdf", "datatype", "xsd", "string")
                 p.text = " ".join(value)
-            elif type(value) is datetime.datetime:
+            elif isinstance(value, datetime.datetime):
                 n = "timepoint_" + value.strftime("%s")
                 self.timepoints.append(n)
                 self.add_attrib(p, "rdf", "resource", "log", n)
