@@ -110,18 +110,3 @@ def get_logged_task_info(client, task_id):
         "Data": stat,
     }
 
-def transform_stamped_array_to_tf(ts_arr):
-    meta = ts_arr[0].pop("_meta")
-    for ts in ts_arr:
-        if "_meta" in ts:
-            del ts["_meta"]
-        if "_id" in ts:
-            del ts["_id"]
-    return {
-        "_meta": meta,
-        "transforms": ts_arr,
-    }
-
-def transform_stamped_to_tf(ts):
-    return transform_stamped_array_to_tf([ts])
-

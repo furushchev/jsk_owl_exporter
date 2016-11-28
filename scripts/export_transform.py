@@ -16,13 +16,15 @@ def json_serializer(o):
     if isinstance(o, bson.ObjectId):
         return { "$oid": str(o) }
     elif isinstance(o, datetime.datetime):
-        return { "$date": o.strftime("%s") }
+        return { "$date": get_epoch_time(o) }
     raise TypeError(repr(o) + " is not JSON serializable")
 
 def export_tf(db_addr, task_id, out_path):
     client = get_mongo_client(db_addr)
     cur = client.find({
-        "_meta.stored_type": "geometry_msgs/TransformStamped",
+        "_meta.stored_type": { "$in": [
+            "geometry_msgs/TransformStamped",
+            "posedetection_msgs/Object6DPose" ]},
         "_meta.task_id": task_id,
     }).sort("_id")
 
@@ -34,15 +36,19 @@ def export_tf(db_addr, task_id, out_path):
     print "exporting %s messages to %s" % (cur.count(), out_path)
 
     with open(out_path, "w") as f:
-        for ts in cur:
-            json.dump(transform_stamped_to_tf(ts), f, default=json_serializer)
+        for d in cur:
+            t = d["_meta"]["stored_type"]
+            if t == "posedetection_msgs/Object6DPose":
+                json.dump(object6dpose_to_tf(d), f, default=json_serializer)
+            elif t == "geometry_msgs/TransformStamped":
+                json.dump(transform_stamped_to_tf(d), f, default=json_serializer)
             f.write(os.linesep)
 
     return True
 
-
 def exec_command(args):
     return export_tf(args.db, args.task, args.out)
+
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description="OWL Transform Information Exporter from mongo database")
