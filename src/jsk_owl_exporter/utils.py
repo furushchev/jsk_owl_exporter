@@ -3,6 +3,7 @@
 # Author: Yuki Furuta <furushchev@jsk.imi.i.u-tokyo.ac.jp>
 
 from bson.son import SON
+import datetime
 import pymongo
 import random
 import string
@@ -18,6 +19,9 @@ class UniqueStringGenerator(object):
             if s not in self.issued:
                 self.issued |= set(s)
                 return s
+
+def get_epoch_time(dt):
+    return int((dt - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000.0)
 
 def parse_mongodb_address(s):
     host = "localhost"
@@ -45,7 +49,6 @@ def parse_mongodb_address(s):
              "port": port,
              "db"  : db,
              "col" : col }
-
 
 def get_mongo_client(address):
     addr = parse_mongodb_address(address)
@@ -121,3 +124,4 @@ def transform_stamped_array_to_tf(ts_arr):
 
 def transform_stamped_to_tf(ts):
     return transform_stamped_array_to_tf([ts])
+
