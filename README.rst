@@ -42,6 +42,17 @@ How to use
        control_msgs/FollowJointTrajectoryActionGoal       |     88
        move_base_msgs/MoveBaseActionFeedback              |    154
 
+* Visualize event graph
+
+  .. code-block:: bash
+
+     $ rosrun jsk_owl_exporter export_log.py graph --task 819CD86E-A4F4-11E6-AC46-C85B763717C4 --output episode1
+
+     600 documents found.
+     saved to episode1/graph.pdf
+
+     $ gnome-open episode1/graph.pdf
+
 * Export event data to OWL file
 
   .. code-block:: bash

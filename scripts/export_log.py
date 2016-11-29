@@ -45,6 +45,17 @@ def export_task(db_addr, task_id, output_dir):
     print "saved to %s" % save_path
     return True
 
+def graph_task(db_addr, task_id, output_dir):
+    client = get_mongo_client(db_addr)
+    agg = MongoAggregator(client, task_id)
+    node = agg.aggregate()
+    writer = GraphWriter(node)
+    writer.parse()
+    save_path = os.path.join(output_dir, "graph.pdf")
+    writer.save_pdf(save_path)
+    print "saved to %s" % save_path
+    return True
+
 def exec_command(args):
     if args.command == "list":
         return list_tasks(args.db)
@@ -52,11 +63,13 @@ def exec_command(args):
         return info_task(args.db, args.task)
     elif args.command == "export":
         return export_task(args.db, args.task, args.output)
+    elif args.command == "graph":
+        return graph_task(args.db, args.task, args.output)
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description="OWL Exporter from mongo database")
     p.add_argument("command", type=str, help="command",
-                   choices=["list", "info", "export"])
+                   choices=["list", "info", "graph", "export"])
 
     # task
     sp = p.add_argument_group("task")
