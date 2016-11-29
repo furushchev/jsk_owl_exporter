@@ -20,7 +20,7 @@ def json_serializer(o):
         return { "$date": get_epoch_time(o) }
     raise TypeError(repr(o) + " is not JSON serializable")
 
-def export_tf(db_addr, task_id, out_path, srv_name):
+def export_tf(db_addr, task_id, out_dir, srv_name):
     client = get_mongo_client(db_addr)
     bson_cvt = BSONConversion(srv_name)
     cur = client.find({
@@ -34,11 +34,11 @@ def export_tf(db_addr, task_id, out_path, srv_name):
         "_meta.task_id": task_id,
     }).sort("_id")
 
-    out_dir = os.path.dirname(out_path)
     if not os.path.exists(out_dir):
         print "%s does not exists. created directories..." % out_dir
         os.makedirs(out_dir)
 
+    out_path = os.path.join(out_dir, "tf.json")
     print "exporting %s messages to %s" % (cur.count(), out_path)
 
     with open(out_path, "w") as f:
@@ -51,14 +51,14 @@ def export_tf(db_addr, task_id, out_path, srv_name):
 
 def exec_command(args):
     rospy.init_node("export_transform")
-    return export_tf(args.db, args.task, args.out, args.srv)
+    return export_tf(args.db, args.task, args.output, args.srv)
 
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description="OWL Transform Information Exporter from mongo database")
     p.add_argument("task", type=str, help="Task ID")
-    p.add_argument("--out", type=str, help="output path",
-                   default=os.path.join(os.getcwd(), "tf.json"))
+    p.add_argument("--output", type=str, help="output dir",
+                   default=os.getcwd())
 
     # mongodb
     p.add_argument("--db", default="mongodb://localhost:27017/jsk_robot_lifelog/pr1012",

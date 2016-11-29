@@ -184,9 +184,9 @@ class OWLWriter(OWLWriterMeta):
             body = body.replace("&amp;%s;" % key, "&%s;" % key)
         return body
 
-    def to_file(self, dest, pretty_print=True, doctype=None):
+    def to_file(self, dest, pretty_print=True):
         with open(dest, "w") as f:
-            f.write(self.to_string(pretty_print=pretty_print, doctype=doctype))
+            f.write(self.to_string(pretty_print=pretty_print))
 
 if __name__ == '__main__':
     w = OWLWriter()

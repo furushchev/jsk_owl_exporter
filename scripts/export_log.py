@@ -39,6 +39,10 @@ def export_task(db_addr, task_id, output_dir):
     client = get_mongo_client(db_addr)
     agg = MongoAggregator(client, task_id)
     node = agg.aggregate()
+    writer = OWLWriter(node)
+    save_path = os.path.join(output_dir, "log.owl")
+    writer.to_file(save_path)
+    print "saved to %s" % save_path
     return True
 
 def exec_command(args):
