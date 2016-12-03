@@ -33,6 +33,7 @@ class Graph(object):
             f.write("}" + os.linesep)
     def preview(self, fn):
         fn = os.path.abspath(fn)
+        fn, _ = os.path.splitext(fn)
         dotfn = fn + ".dot"
         pdffn = fn + ".pdf"
         self.save(dotfn)
