@@ -57,7 +57,7 @@ def exec_command(args):
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description="OWL Transform Information Exporter from mongo database")
     p.add_argument("task", type=str, help="Task ID")
-    p.add_argument("--output", type=str, help="output dir",
+    p.add_argument("-o", "--output", type=str, help="output dir",
                    default=os.getcwd())
 
     # mongodb
