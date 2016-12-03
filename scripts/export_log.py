@@ -12,10 +12,10 @@ from jsk_owl_exporter import *
 def list_tasks(db_addr):
     client = get_mongo_client(db_addr)
     tasks = list_logged_tasks(client)
+    fmt = "{:<13}  ({:<6} docs, {:<10} - {:<10})"
     if len(tasks) > 0:
-        print "   Task ID"
         for t in tasks:
-            print t
+            print fmt.format(t["task"], t["msg_count"], t["from"], t["till"])
         return True
     else: return False
 

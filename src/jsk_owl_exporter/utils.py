@@ -59,13 +59,31 @@ def get_mongo_client(address):
 
 def list_logged_tasks(client):
     res = client.aggregate([
-        { "$group": { "_id": "$_meta.task_id" }},
+        { "$sort" : SON([("_id", pymongo.ASCENDING)])},
+        { "$group": { "_id": "$_meta.task_id", "msgs": { "$sum": 1 }}},
     ])
     tasks = []
     if res["ok"] == 1.0:
         for tid in res["result"]:
-            tasks.append(tid["_id"])
-    return tasks
+            task_id = tid["_id"]
+            if isinstance(task_id, str) or isinstance(task_id, unicode):
+                cur = client.find({"_meta.task_id": task_id }).sort([("$natural", pymongo.ASCENDING)]).limit(1)
+                task_start = "N/A"
+                if cur.alive:
+                    task_start_time = cur.next()["_id"].generation_time
+                    task_start = task_start_time.strftime("%Y/%m/%d %H:%M:%S")
+                cur = client.find({"_meta.task_id": task_id }).sort([("$natural", pymongo.DESCENDING)]).limit(1)
+                task_end = "N/A"
+                if cur.alive:
+                    task_end = cur.next()["_id"].generation_time.strftime("%Y/%m/%d %H:%M:%S")
+                tasks.append({
+                    "task": task_id,
+                    "msg_count": tid["msgs"],
+                    "from": task_start,
+                    "till": task_end,
+                    "sort_key": task_start_time,
+                })
+    return sorted(tasks, key=lambda x: x["sort_key"])
 
 def get_logged_task_info(client, task_id):
     # task name
