@@ -31,14 +31,6 @@ class Graph(object):
             f.write("  node [shape = record];" + os.linesep)
             f.write(self.s.getvalue())
             f.write("}" + os.linesep)
-    def preview(self, fn):
-        fn = os.path.abspath(fn)
-        fn, _ = os.path.splitext(fn)
-        dotfn = fn + ".dot"
-        pdffn = fn + ".pdf"
-        self.save(dotfn)
-        os.system("dot -Kdot -Tpdf %s > %s" % (dotfn, pdffn))
-        os.system("gnome-open %s" % pdffn)
 
 
 class GraphWriter(object):
@@ -55,5 +47,11 @@ class GraphWriter(object):
             self.parse_node(c)
     def parse(self):
         self.parse_node(self.root)
-    def save_pdf(self, dest):
-        self.graph.preview(dest)
+    def save_pdf(self, dest, preview=False):
+        base, _ = os.path.splitext(dest)
+        dot_path = base + ".dot"
+        pdf_path = base + ".pdf"
+        self.graph.save(dot_path)
+        os.system("dot -Kdot -Tpdf %s > %s" % (dot_path, pdf_path))
+        if preview:
+            os.system("gnome-open %s" % pdf_path)

@@ -48,14 +48,14 @@ def export_task(db_addr, task_id, output_dir):
     print "saved to %s" % save_path
     return True
 
-def graph_task(db_addr, task_id, output_dir):
+def graph_task(db_addr, task_id, output_dir, preview):
     client = get_mongo_client(db_addr)
     agg = MongoAggregator(client, task_id)
     node = agg.aggregate()
     writer = GraphWriter(node)
     writer.parse()
-    save_path = os.path.join(output_dir, "graph.pdf")
-    writer.save_pdf(save_path)
+    save_path = os.path.join(output_dir, "%s.pdf" % task_id)
+    writer.save_pdf(save_path, preview)
     print "saved to %s" % save_path
     return True
 
@@ -67,7 +67,7 @@ def exec_command(args):
     elif args.command == "export":
         return export_task(args.db, args.task, args.output)
     elif args.command == "graph":
-        return graph_task(args.db, args.task, args.output)
+        return graph_task(args.db, args.task, args.output, args.preview)
 
 
 if __name__ == '__main__':
@@ -92,6 +92,8 @@ if __name__ == '__main__':
     cp.add_argument("task", type=str, help="task ID")
     cp.add_argument("-o", "--output", default=os.getcwd(), type=str,
                     help="output directory of exported graph")
+    cp.add_argument("-p", "--preview", action="store_true",
+                    help="preview pdf")
 
     cp = sp.add_parser("export", description="export ontology from task logged data")
     cp.add_argument("task", type=str, help="task ID")
