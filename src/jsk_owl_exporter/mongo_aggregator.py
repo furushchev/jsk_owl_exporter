@@ -65,7 +65,15 @@ class MongoAggregator(object):
         act_date = d["_meta"]["inserted_at"]
 
         if act_status == "START":
-            sub = Node(act_name)
+            if act_name.startswith("pr2-logging-interface::move-to"):
+                sub = Node("BaseMovement")
+            elif act_name.startswith("pr2-logging-interface::angle-vector-sequence"):
+                sub = Node("ArmMovement")
+            elif act_name.startswith("pr2-logging-interface"):
+                sub = Node(act_name)
+            else:
+                sub = Node("CRAMAction")
+            sub.add_prop("taskContext", [act_name])
             sub.add_prop("startTime", act_date)
             sub.add_prop("goalContext", d["args"])
             if self.cur_node.children:
