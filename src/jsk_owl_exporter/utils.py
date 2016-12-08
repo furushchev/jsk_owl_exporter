@@ -3,10 +3,12 @@
 # Author: Yuki Furuta <furushchev@jsk.imi.i.u-tokyo.ac.jp>
 
 from bson.son import SON
+import calendar
 import datetime
 import pymongo
 import random
 import string
+import time
 
 
 class UniqueStringGenerator(object):
@@ -20,8 +22,22 @@ class UniqueStringGenerator(object):
                 self.issued |= set(s)
                 return s
 
-def get_epoch_time(dt):
-    return int((dt - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000.0)
+def is_simulation_time(t):
+    return t.tm_year < 1990
+
+def epoch_time_to_datetime(e):
+    t = time.gmtime(e)
+    if is_simulation_time(t):
+        return datetime.datetime(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+    else:
+        return datetime.datetime.fromtimestamp(time.mktime(time.gmtime(e)))
+
+def datetime_to_epoch_time(dt, local=True):
+    t = dt.timetuple()
+    if is_simulation_time(t):
+        return calendar.timegm(t)
+    else:
+        return int(time.mktime(t))
 
 def parse_mongodb_address(s):
     host = "localhost"

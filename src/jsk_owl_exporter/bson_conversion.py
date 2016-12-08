@@ -55,6 +55,12 @@ def convert_stamp(o, use_rostime):
         else:
             return o
 
+def tf_frame_string(s):
+    if s.startswith("/"):
+        return s
+    else:
+        return "/" + s
+
 class BSONConversion(object):
     def __init__(self, srv_name="get_transforms"):
         self.get_transforms_srv = rospy.ServiceProxy(srv_name, GetRobotTransforms)
@@ -82,6 +88,8 @@ class BSONConversion(object):
                 "transforms": ts_arr }
         for i in range(len(ret["transforms"])):
             ret["transforms"][i]["header"]["stamp"] = convert_stamp(ret["transforms"][i]["header"]["stamp"], use_rostime)
+            ret["transforms"][i]["header"]["frame_id"] = tf_frame_string(ret["transforms"][i]["header"]["frame_id"])
+            ret["transforms"][i]["child_frame_id"] = tf_frame_string(ret["transforms"][i]["child_frame_id"])
         return ret
 
     def transform_stamped_to_tf(self, ts, use_rostime):
@@ -92,11 +100,11 @@ class BSONConversion(object):
             "_meta": od["_meta"],
             "transforms": [{
                 "header": {
-                    "frame_id": robot_frame_id,
+                    "frame_id": tf_frame_string(robot_frame_id),
                     "stamp": convert_stamp(od["_meta"]["inserted_at"], use_rostime),
                     "seq": 0,
                 },
-                "child_frame_id": od["type"],
+                "child_frame_id": tf_frame_string(od["type"]),
                 "transform": {
                     "translation": od["pose"]["position"],
                     "rotation": od["pose"]["orientation"],
@@ -105,13 +113,15 @@ class BSONConversion(object):
 
     def move_base_action_feedback_to_tf(self, f, use_rostime, robot_frame_id="/base_footprint"):
         base = f["feedback"]["base_position"]
-        base["header"]["frame_id"] = "/" + base["header"]["frame_id"]
+        base["header"]["frame_id"] = tf_frame_string(base["header"]["frame_id"])
         base["header"]["stamp"] = convert_stamp(base["header"]["stamp"], use_rostime)
         return {
-            "_meta": f["_meta"],
+#            "_meta": f["_meta"],
+            "__recorded": datetime_to_date_json(f["_meta"]["inserted_at"]),
+            "__topic": "/tf",
             "transforms": [{
                 "header": base["header"],
-                "child_frame_id": robot_frame_id,
+                "child_frame_id": tf_frame_string(robot_frame_id),
                 "transform": {
                     "translation": base["pose"]["position"],
                     "rotation": base["pose"]["orientation"],
@@ -133,10 +143,10 @@ class BSONConversion(object):
             "transforms": [{
                 "header": {
                     "seq": t.header.seq,
-                    "frame_id": t.header.frame_id,
+                    "frame_id": tf_frame_string(t.header.frame_id),
                     "stamp": convert_stamp(t.header.stamp, use_rostime),
                 },
-                "child_frame_id": t.child_frame_id,
+                "child_frame_id": tf_frame_string(t.child_frame_id),
                 "transform": {
                     "translation": {
                         "x": t.transform.translation.x,
@@ -147,7 +157,6 @@ class BSONConversion(object):
                         "y": t.transform.rotation.y,
                         "z": t.transform.rotation.z,
                         "w": t.transform.rotation.w }}} for t in res]}
-
 
     def follow_joint_trajectory_feedback_to_tf(self, f, use_rostime):
         fb = f["feedback"]
@@ -164,10 +173,10 @@ class BSONConversion(object):
             "transforms": [{
                 "header": {
                     "seq": t.header.seq,
-                    "frame_id": t.header.frame_id,
+                    "frame_id": tf_frame_string(t.header.frame_id),
                     "stamp": convert_stamp(t.header.stamp, use_rostime),
                 },
-                "child_frame_id": t.child_frame_id,
+                "child_frame_id": tf_frame_string(t.child_frame_id),
                 "transform": {
                     "translation": {
                         "x": t.transform.translation.x,

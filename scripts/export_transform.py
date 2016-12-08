@@ -17,7 +17,7 @@ def json_serializer(o):
     if isinstance(o, bson.ObjectId):
         return { "$oid": str(o) }
     elif isinstance(o, datetime.datetime):
-        return { "$date": get_epoch_time(o) }
+        return { "$date": datetime_to_epoch_time(o) }
     raise TypeError(repr(o) + " is not JSON serializable")
 
 def export_tf(db_addr, task_id, out_dir, srv_name):

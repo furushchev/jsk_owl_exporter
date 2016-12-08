@@ -7,7 +7,7 @@ import lxml.etree
 import lxml.builder
 import os
 import sys
-from utils import UniqueStringGenerator, get_epoch_time
+from utils import UniqueStringGenerator, datetime_to_epoch_time
 
 class OWLWriterMeta(object):
     VERSION = 0.93
@@ -87,8 +87,11 @@ class OWLWriter(OWLWriterMeta):
                 self.add_attrib(p, "rdf", "datatype", "xsd", "string")
                 p.text = " ".join(value)
             elif isinstance(value, datetime.datetime):
-                n = "timepoint_%d" % get_epoch_time(value)
-                self.timepoints.append(n)
+                print value, datetime_to_epoch_time(value)
+                n = "timepoint_%d" % datetime_to_epoch_time(value)
+                print n
+                if n not in self.timepoints:
+                    self.timepoints.append(n)
                 self.add_attrib(p, "rdf", "resource", "log", n)
             else:
                 self.add_attrib(p, "rdf", "resource", "log", value)
