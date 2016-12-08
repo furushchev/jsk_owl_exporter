@@ -6,8 +6,10 @@
 import math
 import datetime
 import genpy
+import numpy as np
 import rospy
 from robot_state_publisher.srv import (GetRobotTransforms, GetRobotTransformsRequest)
+from tf import transformations as T
 
 
 def datetime_to_rostime_json(dt):
@@ -64,20 +66,46 @@ def tf_frame_string(s):
 class BSONConversion(object):
     def __init__(self, srv_name="get_transforms"):
         self.get_transforms_srv = rospy.ServiceProxy(srv_name, GetRobotTransforms)
-    def to_tf_json(self, doc, use_rostime=False):
+
+    def offset_map_frame(self, doc, offset):
+        if len(offset) == 6:
+            trans_rot_mat = T.euler_matrix(tuple(offset[3:]))
+        elif len(offset) == 7:
+            trans_rot_mat = T.quaternion_matrix(tuple(offset[3:]))
+        else:
+            raise ValueError("orientation must be rpy or quat")
+        trans_mat = np.dot(T.translation_matrix(tuple(offset[:3])),
+                           trans_rot_mat)
+        inv_trans_mat = np.linalg.inv(trans_mat)
+        for i, d in enumerate(doc["transforms"]):
+            if d["header"]["frame_id"] != "/map":
+                continue
+            t = d["transform"]["translation"]
+            q = d["transform"]["rotation"]
+            pose_mat = np.dot(T.translation_matrix((t["x"], t["y"], t["z"])),
+                              T.quaternion_matrix((q["x"], q["y"], q["z"], q["w"])))
+            ret = np.dot(inv_trans_mat, pose_mat)
+            t["x"], t["y"], t["z"] = T.translation_from_matrix(ret)
+            q["x"], q["y"], q["z"], q["w"] = T.quaternion_from_matrix(ret)
+            doc["transforms"][i]["transform"]["translation"] = t
+            doc["transforms"][i]["transform"]["rotation"] = q
+        return doc
+        
+    def to_tf_json(self, doc, use_rostime=False, offset=[0,0,0,0,0,0,0]):
         t = doc["_meta"]["stored_type"]
         if   t == "posedetection_msgs/Object6DPose":
-            return self.object6dpose_to_tf(doc, use_rostime)
+            ret = self.object6dpose_to_tf(doc, use_rostime)
         elif t == "geometry_msgs/TransformStamped":
-            return self.transform_stamped_to_tf(doc, use_rostime)
+            ret = self.transform_stamped_to_tf(doc, use_rostime)
         elif t == "move_base_msgs/MoveBaseActionFeedback":
-            return self.move_base_action_feedback_to_tf(doc, use_rostime)
+            ret = self.move_base_action_feedback_to_tf(doc, use_rostime)
         elif t == "control_msgs/FollowJointTrajectoryActionFeedback":
-            return self.follow_joint_trajectory_feedback_to_tf(doc, use_rostime)
+            ret = self.follow_joint_trajectory_feedback_to_tf(doc, use_rostime)
         elif t == "sensor_msgs/JointState":
-            return self.joint_state_to_tf(doc, use_rostime)
+            ret = self.joint_state_to_tf(doc, use_rostime)
+        return self.offset_map_frame(ret, offset)
 
-    def transform_stamped_array_to_tf(self, ts_arr, use_rostime):
+    def transform_stamped_array_to_tf(self, ts_arr, use_rostime, offset):
         meta = ts_arr[0].pop("_meta")
         for ts in ts_arr:
             if "_meta" in ts:

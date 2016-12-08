@@ -20,7 +20,7 @@ def json_serializer(o):
         return { "$date": datetime_to_epoch_time(o) }
     raise TypeError(repr(o) + " is not JSON serializable")
 
-def export_tf(db_addr, task_id, out_dir, srv_name):
+def export_tf(db_addr, task_id, out_dir, srv_name, offset):
     client = get_mongo_client(db_addr)
     bson_cvt = BSONConversion(srv_name)
     cur = client.find({
@@ -44,14 +44,16 @@ def export_tf(db_addr, task_id, out_dir, srv_name):
     with open(out_path, "w") as f:
         for d in cur:
             t = d["_meta"]["stored_type"]
-            json.dump(bson_cvt.to_tf_json(d), f, default=json_serializer)
+            if t != "move_base_msgs/MoveBaseActionFeedback":
+                continue
+            json.dump(bson_cvt.to_tf_json(d, offset=offset), f, default=json_serializer)
             f.write(os.linesep)
 
     return True
 
 def exec_command(args):
     rospy.init_node("export_transform")
-    return export_tf(args.db, args.task, args.output, args.srv)
+    return export_tf(args.db, args.task, args.output, args.srv, args.offset)
 
 
 if __name__ == '__main__':
@@ -68,5 +70,12 @@ if __name__ == '__main__':
     p.add_argument("--srv", default="get_transforms",
                    type=str, help="service name for robot state publisher")
 
+    p.add_argument("--offset", default=[0,0,0,0,0,0],
+                   type=float, nargs='+', help="offset to room origin from /map frame (rpy or quat)")
+
     args = p.parse_args()
+    if len(args.offset) < 6 or len(args.offset) > 7:
+        print len(args.offset)
+        p.print_usage()
+        sys.exit(1)
     sys.exit(exec_command(args))
