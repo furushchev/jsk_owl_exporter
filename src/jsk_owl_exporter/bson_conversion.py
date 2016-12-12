@@ -3,6 +3,7 @@
 # Author: Yuki Furuta <furushchev@jsk.imi.i.u-tokyo.ac.jp>
 
 
+import copy
 import math
 import datetime
 import genpy
@@ -69,26 +70,39 @@ class BSONConversion(object):
 
     def offset_map_frame(self, doc, offset):
         if len(offset) == 6:
-            trans_rot_mat = T.euler_matrix(tuple(offset[3:]))
+            trans_rot_mat = T.euler_matrix(*offset[3:])
         elif len(offset) == 7:
-            trans_rot_mat = T.quaternion_matrix(tuple(offset[3:]))
+            trans_rot_mat = T.quaternion_matrix(offset[3:])
         else:
             raise ValueError("orientation must be rpy or quat")
         trans_mat = np.dot(T.translation_matrix(tuple(offset[:3])),
                            trans_rot_mat)
-        inv_trans_mat = np.linalg.inv(trans_mat)
+        t = T.translation_from_matrix(trans_mat)
+        q = T.quaternion_from_matrix(trans_mat)
+        # /map -> /room
+        room = {}
+        room["header"] = copy.deepcopy(doc["transforms"][0]["header"])
+        room["header"]["frame_id"] = "/map"
+        room["child_frame_id"] = "/room"
+        room["transform"] = {
+            "translation": { "x": t[0], "y": t[1], "z": t[2] },
+            "rotation": { "x": q[0], "y": q[1], "z": q[2], "w": q[3] } }
+
         for i, d in enumerate(doc["transforms"]):
             if d["header"]["frame_id"] != "/map":
                 continue
-            t = d["transform"]["translation"]
-            q = d["transform"]["rotation"]
-            pose_mat = np.dot(T.translation_matrix((t["x"], t["y"], t["z"])),
-                              T.quaternion_matrix((q["x"], q["y"], q["z"], q["w"])))
-            ret = np.dot(inv_trans_mat, pose_mat)
-            t["x"], t["y"], t["z"] = T.translation_from_matrix(ret)
-            q["x"], q["y"], q["z"], q["w"] = T.quaternion_from_matrix(ret)
-            doc["transforms"][i]["transform"]["translation"] = t
-            doc["transforms"][i]["transform"]["rotation"] = q
+            else:
+                doc["transforms"][i]["header"]["frame_id"] = "/room"
+            # t = copy.deepcopy(d["transform"]["translation"])
+            # q = copy.deepcopy(d["transform"]["rotation"])
+            # pose_mat = np.dot(T.translation_matrix((t["x"], t["y"], t["z"])),
+            #                   T.quaternion_matrix((q["w"], q["x"], q["y"], q["z"])))
+            # ret = np.dot(inv_trans_mat, pose_mat)
+            # t["x"], t["y"], t["z"] = T.translation_from_matrix(ret)
+            # q["w"], q["x"], q["y"], q["z"] = T.quaternion_from_matrix(ret)
+            # doc["transforms"][i]["transform"]["translation"] = t
+            # doc["transforms"][i]["transform"]["rotation"] = q
+        doc["transforms"].append(room)
         return doc
         
     def to_tf_json(self, doc, use_rostime=False, offset=[0,0,0,0,0,0,0]):
