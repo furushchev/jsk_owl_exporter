@@ -117,9 +117,12 @@ class BSONConversion(object):
             ret = self.follow_joint_trajectory_feedback_to_tf(doc, use_rostime)
         elif t == "sensor_msgs/JointState":
             ret = self.joint_state_to_tf(doc, use_rostime)
+        ret["__recorded"] = datetime_to_date_json(ret["_meta"]["inserted_at"])
+        ret["__topic"] = "/tf"
+        del ret["_meta"]
         return self.offset_map_frame(ret, offset)
 
-    def transform_stamped_array_to_tf(self, ts_arr, use_rostime, offset):
+    def transform_stamped_array_to_tf(self, ts_arr, use_rostime):
         meta = ts_arr[0].pop("_meta")
         for ts in ts_arr:
             if "_meta" in ts:
@@ -158,9 +161,7 @@ class BSONConversion(object):
         base["header"]["frame_id"] = tf_frame_string(base["header"]["frame_id"])
         base["header"]["stamp"] = convert_stamp(base["header"]["stamp"], use_rostime)
         return {
-#            "_meta": f["_meta"],
-            "__recorded": datetime_to_date_json(f["_meta"]["inserted_at"]),
-            "__topic": "/tf",
+            "_meta": f["_meta"],
             "transforms": [{
                 "header": base["header"],
                 "child_frame_id": tf_frame_string(robot_frame_id),

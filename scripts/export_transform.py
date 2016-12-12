@@ -43,9 +43,9 @@ def export_tf(db_addr, task_id, out_dir, srv_name, offset):
 
     with open(out_path, "w") as f:
         for d in cur:
-            t = d["_meta"]["stored_type"]
-            if t != "move_base_msgs/MoveBaseActionFeedback":
-                continue
+            # t = d["_meta"]["stored_type"]
+            # if t != "move_base_msgs/MoveBaseActionFeedback":
+            #     continue
             json.dump(bson_cvt.to_tf_json(d, offset=offset), f, default=json_serializer)
             f.write(os.linesep)
 
