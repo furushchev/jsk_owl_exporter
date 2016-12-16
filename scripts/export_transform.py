@@ -30,6 +30,7 @@ def export_tf(db_addr, task_id, out_dir, srv_name, offset):
             "move_base_msgs/MoveBaseActionFeedback",
             "control_msgs/FollowJointTrajectoryActionFeedback",
             "sensor_msgs/JointState",
+            "tf2_msgs/TFMessage",
         ]},
         "_meta.task_id": task_id,
     }).sort("_id")

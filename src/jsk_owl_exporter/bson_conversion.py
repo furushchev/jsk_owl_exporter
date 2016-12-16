@@ -58,15 +58,10 @@ def convert_stamp(o, use_rostime):
         else:
             return o
 
-def tf_frame_string(s):
-    if s.startswith("/"):
-        return s
-    else:
-        return "/" + s
-
 class BSONConversion(object):
     def __init__(self, srv_name="get_transforms"):
         self.get_transforms_srv = rospy.ServiceProxy(srv_name, GetRobotTransforms)
+        self.cached_transforms = []
 
     def offset_map_frame(self, doc, offset):
         if len(offset) == 6:
@@ -82,30 +77,39 @@ class BSONConversion(object):
         # /map -> /room
         room = {}
         room["header"] = copy.deepcopy(doc["transforms"][0]["header"])
-        room["header"]["frame_id"] = "/map"
-        room["child_frame_id"] = "/room"
+        room["header"]["frame_id"] = "map"
+        room["child_frame_id"] = "room"
         room["transform"] = {
             "translation": { "x": t[0], "y": t[1], "z": t[2] },
             "rotation": { "x": q[0], "y": q[1], "z": q[2], "w": q[3] } }
 
         for i, d in enumerate(doc["transforms"]):
-            if d["header"]["frame_id"] != "/map":
+            if d["header"]["frame_id"] != "map":
                 continue
             else:
-                doc["transforms"][i]["header"]["frame_id"] = "/room"
-            # t = copy.deepcopy(d["transform"]["translation"])
-            # q = copy.deepcopy(d["transform"]["rotation"])
-            # pose_mat = np.dot(T.translation_matrix((t["x"], t["y"], t["z"])),
-            #                   T.quaternion_matrix((q["w"], q["x"], q["y"], q["z"])))
-            # ret = np.dot(inv_trans_mat, pose_mat)
-            # t["x"], t["y"], t["z"] = T.translation_from_matrix(ret)
-            # q["w"], q["x"], q["y"], q["z"] = T.quaternion_from_matrix(ret)
-            # doc["transforms"][i]["transform"]["translation"] = t
-            # doc["transforms"][i]["transform"]["rotation"] = q
+                doc["transforms"][i]["header"]["frame_id"] = "room"
         doc["transforms"].append(room)
         return doc
-        
-    def to_tf_json(self, doc, use_rostime=False, offset=[0,0,0,0,0,0,0]):
+
+    def append_cached_transforms(self, data):
+        if len(data["transforms"]) == 0:
+            return data
+        stamp = copy.deepcopy(data["transforms"][0]["header"]["stamp"])
+        tf_added = []
+        for c in self.cached_transforms:
+            append = True
+            for d in data["transforms"]:
+                if d["header"]["frame_id"] == c["header"]["frame_id"] and d["child_frame_id"] == c["child_frame_id"]:
+                    append = False
+                    break
+            if append:
+                c["header"]["stamp"] = stamp
+                tf_added.append(c)
+        data["transforms"] += tf_added
+        self.cached_transforms = copy.deepcopy(data["transforms"])
+        return data
+
+    def to_tf_json(self, doc, use_rostime=False, offset=[0,0,0,0,0,0,0], export_meta=False):
         t = doc["_meta"]["stored_type"]
         if   t == "posedetection_msgs/Object6DPose":
             ret = self.object6dpose_to_tf(doc, use_rostime)
@@ -117,10 +121,23 @@ class BSONConversion(object):
             ret = self.follow_joint_trajectory_feedback_to_tf(doc, use_rostime)
         elif t == "sensor_msgs/JointState":
             ret = self.joint_state_to_tf(doc, use_rostime)
+        elif t == "tf2_msgs/TFMessage":
+            ret = self.tf_message_to_tf(doc, use_rostime)
+
         ret["__recorded"] = datetime_to_date_json(ret["_meta"]["inserted_at"])
         ret["__topic"] = "/tf"
-        del ret["_meta"]
-        return self.offset_map_frame(ret, offset)
+        if not export_meta:
+            del ret["_meta"]
+
+        data = self.offset_map_frame(ret, offset)
+        data = self.append_cached_transforms(data)
+
+        return data
+
+    def tf_message_to_tf(self, msg, use_rostime):
+        for i, t in enumerate(msg["transforms"]):
+            msg["transforms"][i]["header"]["stamp"] = convert_stamp(t["header"]["stamp"], use_rostime)
+        return msg
 
     def transform_stamped_array_to_tf(self, ts_arr, use_rostime):
         meta = ts_arr[0].pop("_meta")
@@ -133,8 +150,8 @@ class BSONConversion(object):
                 "transforms": ts_arr }
         for i in range(len(ret["transforms"])):
             ret["transforms"][i]["header"]["stamp"] = convert_stamp(ret["transforms"][i]["header"]["stamp"], use_rostime)
-            ret["transforms"][i]["header"]["frame_id"] = tf_frame_string(ret["transforms"][i]["header"]["frame_id"])
-            ret["transforms"][i]["child_frame_id"] = tf_frame_string(ret["transforms"][i]["child_frame_id"])
+            ret["transforms"][i]["header"]["frame_id"] = ret["transforms"][i]["header"]["frame_id"]
+            ret["transforms"][i]["child_frame_id"] = ret["transforms"][i]["child_frame_id"]
         return ret
 
     def transform_stamped_to_tf(self, ts, use_rostime):
@@ -145,11 +162,11 @@ class BSONConversion(object):
             "_meta": od["_meta"],
             "transforms": [{
                 "header": {
-                    "frame_id": tf_frame_string(robot_frame_id),
+                    "frame_id": robot_frame_id,
                     "stamp": convert_stamp(od["_meta"]["inserted_at"], use_rostime),
                     "seq": 0,
                 },
-                "child_frame_id": tf_frame_string(od["type"]),
+                "child_frame_id": od["type"],
                 "transform": {
                     "translation": od["pose"]["position"],
                     "rotation": od["pose"]["orientation"],
@@ -158,13 +175,13 @@ class BSONConversion(object):
 
     def move_base_action_feedback_to_tf(self, f, use_rostime, robot_frame_id="/base_footprint"):
         base = f["feedback"]["base_position"]
-        base["header"]["frame_id"] = tf_frame_string(base["header"]["frame_id"])
+        base["header"]["frame_id"] = base["header"]["frame_id"]
         base["header"]["stamp"] = convert_stamp(base["header"]["stamp"], use_rostime)
         return {
             "_meta": f["_meta"],
             "transforms": [{
                 "header": base["header"],
-                "child_frame_id": tf_frame_string(robot_frame_id),
+                "child_frame_id": robot_frame_id,
                 "transform": {
                     "translation": base["pose"]["position"],
                     "rotation": base["pose"]["orientation"],
@@ -186,10 +203,10 @@ class BSONConversion(object):
             "transforms": [{
                 "header": {
                     "seq": t.header.seq,
-                    "frame_id": tf_frame_string(t.header.frame_id),
+                    "frame_id": t.header.frame_id,
                     "stamp": convert_stamp(t.header.stamp, use_rostime),
                 },
-                "child_frame_id": tf_frame_string(t.child_frame_id),
+                "child_frame_id": t.child_frame_id,
                 "transform": {
                     "translation": {
                         "x": t.transform.translation.x,
@@ -216,10 +233,10 @@ class BSONConversion(object):
             "transforms": [{
                 "header": {
                     "seq": t.header.seq,
-                    "frame_id": tf_frame_string(t.header.frame_id),
+                    "frame_id": t.header.frame_id,
                     "stamp": convert_stamp(t.header.stamp, use_rostime),
                 },
-                "child_frame_id": tf_frame_string(t.child_frame_id),
+                "child_frame_id": t.child_frame_id,
                 "transform": {
                     "translation": {
                         "x": t.transform.translation.x,
