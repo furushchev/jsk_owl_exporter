@@ -13,15 +13,18 @@ class Graph(object):
         self.s = StringIO()
         self.num = 1
         self.table = {}
-    def node(self, name, label=None):
+    def node(self, name, label=None, color="white"):
         self.table[name] = str(self.num)
         self.num += 1
         self.s.write("  %s" % self.table[name])
         if label is None:
             label = name
         label = label.replace("<", "\<").replace(">", "\>")
-        self.s.write(" [label=\"%s\"]" % label)
-        self.s.write(";" + os.linesep)
+        self.s.write(" [")
+        self.s.write("label=\"%s\"," % label)
+        self.s.write("fillcolor=\"%s\"," % color)
+        self.s.write("style=\"solid,filled\"")
+        self.s.write("];" + os.linesep)
     def edge(self, f, t):
         self.s.write(" %s -> %s" % (self.table[f], self.table[t]))
         self.s.write(";" + os.linesep)
@@ -40,7 +43,14 @@ class GraphWriter(object):
     def node_attr(self, n):
         return n.name + "\\n" + "\\l".join(["%s: %s" % (k, str(v)) for k,v in n.properties.items()]) + "\\l"
     def parse_node(self, n):
-        self.graph.node(n.name, label=self.node_attr(n))
+        color = "white"
+        if "actionResult" in n.properties:
+            result = n.properties["actionResult"]
+            if result == "SUCCESS":
+                color = "#ccffff" # pastel blue
+            else:
+                color = "#ffcccc"
+        self.graph.node(n.name, label=self.node_attr(n), color=color)
         if n.parent is not None:
             self.graph.edge(n.name, n.parent.name)
         for c in n.children:
